@@ -13,9 +13,11 @@ export {
   ErrorBoundary,
 } from 'expo-router';
 
+const ROUTE_NAME = "index";
+
 export const unstable_settings = {
   // Ensure that reloading on `/modal` keeps a back button present.
-  initialRouteName: '(tabs)',
+  initialRouteName: ROUTE_NAME,
 };
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
