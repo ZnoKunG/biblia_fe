@@ -31,6 +31,7 @@ import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import mockRecords from '@/utils/mockRecords';
 import BookDetailModal from '../components/bookDetail';
 import { useTheme } from '../styles/themeContext';
+import { GetISBNBook } from '@/services/serviceProvider';
 
 export default function LibraryPage(): JSX.Element {
   const [loading, setLoading] = useState<boolean>(true);
@@ -51,7 +52,7 @@ export default function LibraryPage(): JSX.Element {
     title: '',
     author: '',
     isbn: '',
-    cover: 'https://via.placeholder.com/120x180',
+    cover: '',
     genre: '',
     status: 'to read',
     currentPage: 0,
@@ -75,16 +76,32 @@ export default function LibraryPage(): JSX.Element {
     }, 1000);
   }, []);
 
-  const handleAddBook = (): void => {
+  const handleAddBook = async (): Promise<void> => {
     // Validation
     if (!formData.title || !formData.author) {
       Alert.alert('Missing Information', 'Please enter at least title and author');
       return;
     }
 
+    // fetch book api
+    const resp = await GetISBNBook(formData.isbn);
+
+    if (!resp) return;
+
+    if (!resp.ok)
+    {
+      console.log(resp.status);
+      return;
+    }
+
+    const data = await resp.json();
+    console.log(data.book);
+    
+    // placeholder for post create record request
     const newBook: BookRecord = {
-      id: Date.now().toString(),
+      id: "0",
       ...formData,
+      book: data.book,
       dateAdded: new Date().toISOString().split('T')[0],
     };
 
@@ -98,7 +115,7 @@ export default function LibraryPage(): JSX.Element {
       title: '',
       author: '',
       isbn: '',
-      cover: 'https://via.placeholder.com/120x180',
+      cover: '',
       genre: '',
       status: 'to read',
       currentPage: 0,
@@ -111,16 +128,29 @@ export default function LibraryPage(): JSX.Element {
     setShowScannerModal(false);
     
     // Mock ISBN API lookup
-    setTimeout(() => {
+    setTimeout(async () => {
       if (result.data) {
+
+        const resp = await GetISBNBook(result.data);
+
+        if (!resp) return;
+        if (!resp.ok) {
+          console.log(resp.status);
+          return;
+        }
+        
+        const data = await resp.json();
+
         // Mock data return for demo purposes
         setFormData({
-          ...formData,
-          isbn: result.data,
-          title: 'The Great Gatsby',
-          author: 'F. Scott Fitzgerald',
-          genre: 'Classic',
-          totalPages: 180,
+          isbn: data.book.isbn13,
+          title: data.book.title,
+          author: data.book.authors[0],
+          cover: data.book.image,
+          genre: data.book.subjects[0],
+          totalPages: data.book.pages,
+          status: formData.status,
+          currentPage: 0,
         });
         
         setTimeout(() => setShowAddModal(true), 300);
@@ -170,16 +200,16 @@ export default function LibraryPage(): JSX.Element {
       <Card>
         <Row>
           <Image 
-            source={{ uri: item.cover }} 
+            source={{ uri: item.book.cover }} 
             style={{ width: 70, height: 100, borderRadius: 8 }} 
           />
           <View style={{ marginLeft: spacing.md, flex: 1 }}>
             <Row justify="between">
-              <Heading level={4} style={{ flex: 1 }}>{item.title}</Heading>
+              <Heading level={4} style={{ flex: 1 }}>{item.book.title}</Heading>
               <StatusBadge status={item.status} />
             </Row>
-            <Paragraph secondary>{item.author}</Paragraph>
-            <Paragraph secondary small>{item.genre}</Paragraph>
+            <Paragraph secondary>{item.book.author}</Paragraph>
+            <Paragraph secondary small>{item.book.genre}</Paragraph>
             
             {/* Progress section */}
             <View style={{ marginTop: spacing.sm }}>

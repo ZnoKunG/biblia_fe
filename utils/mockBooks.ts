@@ -2,7 +2,7 @@
 const bookDatabase: Book[] = [
     // Science Fiction
     {
-      id: '1',
+      isbn: '1',
       title: 'Dune',
       author: 'Frank Herbert',
       cover: 'https://via.placeholder.com/120x180',
@@ -12,7 +12,7 @@ const bookDatabase: Book[] = [
       totalPages: 412,
     },
     {
-      id: '2',
+      isbn: '2',
       title: 'Project Hail Mary',
       author: 'Andy Weir',
       cover: 'https://via.placeholder.com/120x180',
@@ -22,7 +22,7 @@ const bookDatabase: Book[] = [
       totalPages: 496,
     },
     {
-      id: '3',
+      isbn: '3',
       title: 'The Three-Body Problem',
       author: 'Liu Cixin',
       cover: 'https://via.placeholder.com/120x180',
@@ -32,7 +32,7 @@ const bookDatabase: Book[] = [
       totalPages: 416,
     },
     {
-      id: '4',
+      isbn: '4',
       title: 'Neuromancer',
       author: 'William Gibson',
       cover: 'https://via.placeholder.com/120x180',
@@ -44,7 +44,7 @@ const bookDatabase: Book[] = [
     
     // Self-Help
     {
-      id: '5',
+      isbn: '5',
       title: 'Atomic Habits',
       author: 'James Clear',
       cover: 'https://via.placeholder.com/120x180',
@@ -54,7 +54,7 @@ const bookDatabase: Book[] = [
       totalPages: 320,
     },
     {
-      id: '6',
+      isbn: '6',
       title: 'The 7 Habits of Highly Effective People',
       author: 'Stephen R. Covey',
       cover: 'https://via.placeholder.com/120x180',
@@ -64,7 +64,7 @@ const bookDatabase: Book[] = [
       totalPages: 381,
     },
     {
-      id: '7',
+      isbn: '7',
       title: 'Think and Grow Rich',
       author: 'Napoleon Hill',
       cover: 'https://via.placeholder.com/120x180',
@@ -74,7 +74,7 @@ const bookDatabase: Book[] = [
       totalPages: 233,
     },
     {
-      id: '8',
+      isbn: '8',
       title: 'Deep Work',
       author: 'Cal Newport',
       cover: 'https://via.placeholder.com/120x180',
@@ -86,7 +86,7 @@ const bookDatabase: Book[] = [
     
     // Fantasy
     {
-      id: '9',
+      isbn: '9',
       title: 'The Hobbit',
       author: 'J.R.R. Tolkien',
       cover: 'https://via.placeholder.com/120x180',
@@ -96,7 +96,7 @@ const bookDatabase: Book[] = [
       totalPages: 366,
     },
     {
-      id: '10',
+      isbn: '10',
       title: 'Harry Potter and the Philosopher\'s Stone',
       author: 'J.K. Rowling',
       cover: 'https://via.placeholder.com/120x180',
@@ -106,7 +106,7 @@ const bookDatabase: Book[] = [
       totalPages: 223,
     },
     {
-      id: '11',
+      isbn: '11',
       title: 'The Name of the Wind',
       author: 'Patrick Rothfuss',
       cover: 'https://via.placeholder.com/120x180',
@@ -116,7 +116,7 @@ const bookDatabase: Book[] = [
       totalPages: 662,
     },
     {
-      id: '12',
+      isbn: '12',
       title: 'A Game of Thrones',
       author: 'George R.R. Martin',
       cover: 'https://via.placeholder.com/120x180',
@@ -128,7 +128,7 @@ const bookDatabase: Book[] = [
     
     // Classic
     {
-      id: '13',
+      isbn: '13',
       title: 'To Kill a Mockingbird',
       author: 'Harper Lee',
       cover: 'https://via.placeholder.com/120x180',
@@ -138,7 +138,7 @@ const bookDatabase: Book[] = [
       totalPages: 281,
     },
     {
-      id: '14',
+      isbn: '14',
       title: 'The Great Gatsby',
       author: 'F. Scott Fitzgerald',
       cover: 'https://via.placeholder.com/120x180',
@@ -148,8 +148,8 @@ const bookDatabase: Book[] = [
       totalPages: 180,
     },
     {
-      id: '15',
-      title: 'Pride and Prejudice',
+      isbn: '15',
+      title: 'Prisbne and Prejudice',
       author: 'Jane Austen',
       cover: 'https://via.placeholder.com/120x180',
       genre: 'Classic',
@@ -158,7 +158,7 @@ const bookDatabase: Book[] = [
       totalPages: 432,
     },
     {
-      id: '16',
+      isbn: '16',
       title: '1984',
       author: 'George Orwell',
       cover: 'https://via.placeholder.com/120x180',
@@ -170,7 +170,7 @@ const bookDatabase: Book[] = [
     
     // History
     {
-      id: '17',
+      isbn: '17',
       title: 'Sapiens: A Brief History of Humankind',
       author: 'Yuval Noah Harari',
       cover: 'https://via.placeholder.com/120x180',
@@ -180,7 +180,7 @@ const bookDatabase: Book[] = [
       totalPages: 443,
     },
     {
-      id: '18',
+      isbn: '18',
       title: 'Guns, Germs, and Steel',
       author: 'Jared Diamond',
       cover: 'https://via.placeholder.com/120x180',
@@ -190,9 +190,9 @@ const bookDatabase: Book[] = [
       totalPages: 480,
     },
     {
-      id: '19',
+      isbn: '19',
       title: 'The Wright Brothers',
-      author: 'David McCullough',
+      author: 'Davisbn McCullough',
       cover: 'https://via.placeholder.com/120x180',
       genre: 'History',
       year: '2015',
@@ -200,7 +200,7 @@ const bookDatabase: Book[] = [
       totalPages: 336,
     },
     {
-      id: '20',
+      isbn: '20',
       title: 'A People\'s History of the United States',
       author: 'Howard Zinn',
       cover: 'https://via.placeholder.com/120x180',

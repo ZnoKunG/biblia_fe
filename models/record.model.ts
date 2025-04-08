@@ -2,10 +2,7 @@
 // Define interfaces for our data structures
 interface BookRecord {
     id: string;
-    title: string;
-    author: string;
-    cover: string;
-    genre: string;
+    book: Book;
     status: 'to read' | 'in progress' | 'finished';
     currentPage: number;
     totalPages: number;

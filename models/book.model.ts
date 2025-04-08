@@ -1,6 +1,6 @@
 // Define interfaces for type safety
 interface Book {
-    id: string;
+    isbn: string;
     title: string;
     author: string;
     cover: string;

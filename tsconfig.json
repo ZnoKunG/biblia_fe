@@ -14,8 +14,5 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
-    "app/styles/defaultStyles.tsx",
-    "app/styles/defaultComponents.tsx",
-    "app/styles/themeContext.tsx",
   ]
 }
