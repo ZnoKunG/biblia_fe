@@ -1,8 +1,12 @@
 
 // Define interfaces for our data structures
 interface BookRecord {
-    id: string;
-    book: Book;
+    userID: number;
+    title: string;
+    author: string;
+    isbn: string;
+    cover: string;
+    genre: string;
     status: 'to read' | 'in progress' | 'finished';
     currentPage: number;
     totalPages: number;
@@ -10,6 +14,7 @@ interface BookRecord {
   }
   
   interface RecordFormData {
+    userID: number;
     title: string;
     author: string;
     isbn: string;

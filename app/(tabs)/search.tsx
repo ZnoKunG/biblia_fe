@@ -1,4 +1,4 @@
-// app/(tabs)/search.tsx with detail modal
+// app/(tabs)/search.tsx with chat bubble
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
@@ -8,7 +8,6 @@ import {
   TouchableOpacity, 
   Image,
   ScrollView,
-  ListRenderItemInfo,
   StyleSheet,
   Alert
 } from 'react-native';
@@ -26,9 +25,25 @@ import {
   EmptyState,
   OutlineButton
 } from '../styles/defaultComponents';
-import bookDatabase from '@/utils/mockBooks';
 import BookDetailModal from '../components/bookDetail';
+import ChatBotBubble from '../components/chatbotBubble';
 import { useTheme } from '../styles/themeContext';
+import { useRouter } from 'expo-router';
+import { Get, Post } from '@/services/serviceProvider';
+import { getCurrentUserID, getIsLoggedIn } from '../services/authService';
+
+// Define Book interface if not already defined
+interface Book {
+  isbn: string;
+  title: string;
+  author: string;
+  cover: string;
+  genre: string;
+  rating: number;
+  year: number;
+  totalPages: number;
+  description?: string;
+}
 
 export default function SearchPage(): JSX.Element {
   const { baseStyles, colors } = useTheme();
@@ -42,20 +57,82 @@ export default function SearchPage(): JSX.Element {
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [showDetailModal, setShowDetailModal] = useState<boolean>(false);
 
-  // Get unique genres for filter
-  const genres: string[] = ['All', ...Array.from(new Set(bookDatabase.map(book => book.genre)))];
+  // Get unique genres for filter - we'll get these from the API
+  const [genres, setGenres] = useState<string[]>(['All']);
+  
+  const router = useRouter();
 
-  const handleSearch = (): void => {
+  const getAllBooks = async (): Promise<Book[]> => {
+    try {
+      const resp = await Get('books');
+
+      if (!resp || !resp.ok) {
+        console.log("Error fetching books:", resp?.status);
+        return [];
+      }
+
+      const responseData = await resp.json();
+      return responseData.data || [];
+    }
+    catch (err) {
+      console.log("Error in getAllBooks:", err);
+      return [];
+    }
+  };
+
+  const extractGenres = (books: Book[]): string[] => {
+    const uniqueGenres = [...new Set(books.map(book => book.genre))];
+    return ['All', ...uniqueGenres];
+  };
+
+  const checkLogin = async () => {
+    try {
+      const loggedIn = await getIsLoggedIn();
+
+      if (!loggedIn) {
+        router.replace('/auth/login');
+        return false;
+      }
+      return true;
+    }
+    catch (err) {
+      console.log("Error checking login:", err);
+      return false;
+    }
+  };
+
+  // Load initial data
+  useEffect(() => {
+    const initializeData = async () => {
+      const isLoggedIn = await checkLogin();
+      if (!isLoggedIn) return;
+      
+      setLoading(true);
+      try {
+        const books = await getAllBooks();
+        setSearchResults(books);
+        setGenres(extractGenres(books));
+        setHasSearched(true);
+      } catch (error) {
+        console.error("Error initializing data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    initializeData();
+  }, []);
+
+  const handleSearch = async (): Promise<void> => {
     setLoading(true);
     setHasSearched(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      let results: Book[] = [...bookDatabase];
+    try {
+      let results = await getAllBooks();
       
       // Filter by search query if provided
       if (searchQuery.trim() !== '') {
-        const query: string = searchQuery.toLowerCase();
+        const query = searchQuery.toLowerCase();
         results = results.filter(book => 
           book.title.toLowerCase().includes(query) || 
           book.author.toLowerCase().includes(query)
@@ -68,8 +145,11 @@ export default function SearchPage(): JSX.Element {
       }
 
       setSearchResults(results);
+    } catch (error) {
+      console.error("Error during search:", error);
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   // Handle genre filter change
@@ -79,23 +159,28 @@ export default function SearchPage(): JSX.Element {
       // Re-apply search with new filter
       setLoading(true);
       
-      setTimeout(() => {
-        let results: Book[] = [...bookDatabase];
-        
-        if (searchQuery.trim() !== '') {
-          const query: string = searchQuery.toLowerCase();
-          results = results.filter(book => 
-            book.title.toLowerCase().includes(query) || 
-            book.author.toLowerCase().includes(query)
-          );
-        }
-        
-        if (genre !== 'All') {
-          results = results.filter(book => book.genre === genre);
-        }
+      setTimeout(async () => {
+        try {
+          let results = await getAllBooks();
+          
+          if (searchQuery.trim() !== '') {
+            const query = searchQuery.toLowerCase();
+            results = results.filter(book => 
+              book.title.toLowerCase().includes(query) || 
+              book.author.toLowerCase().includes(query)
+            );
+          }
+          
+          if (genre !== 'All') {
+            results = results.filter(book => book.genre === genre);
+          }
 
-        setSearchResults(results);
-        setLoading(false);
+          setSearchResults(results);
+        } catch (error) {
+          console.error("Error applying genre filter:", error);
+        } finally {
+          setLoading(false);
+        }
       }, 300);
     }
   };
@@ -107,17 +192,55 @@ export default function SearchPage(): JSX.Element {
   };
 
   // Handle adding a book to library
-  const handleAddToLibrary = (book: Book): void => {
-    // In a real app, this would add to user's library in state/database
-    Alert.alert(
-      "Success", 
-      `"${book.title}" has been added to your library.`,
-      [{ text: "OK" }]
-    );
+  const handleAddToLibrary = async (book: any): Promise<void> => {
+    try {
+      const currentUserID = await getCurrentUserID();
+      
+      if (!currentUserID) {
+        console.log("Cannot find UserID in local storage");
+        return;
+      }
+      
+      // Create the new book record
+      const newBook: BookRecord = {
+        userID: parseInt(currentUserID) || 0,
+        isbn: book.isbn,
+        title: book.title,
+        author: book.author,
+        cover: book.cover,
+        genre: book.genre,
+        status: 'to read',
+        currentPage: 0,
+        totalPages: book.totalPages || 0,
+        dateAdded: new Date().toISOString(),
+      };
+      
+      // Send to API
+      const resp = await Post("records", JSON.stringify(newBook));
+      
+      if (!resp || !resp.ok) {
+        throw new Error("Failed to add book to library");
+      }
+      
+      // Show success message
+      Alert.alert(
+        "Success", 
+        `"${book.title}" has been added to your library.`,
+        [{ text: "OK" }]
+      );
+      
+    } catch (error) {
+      console.error('Error adding to library:', error);
+      Alert.alert(
+        "Error", 
+        "Could not add book to your library. Please try again.",
+        [{ text: "OK" }]
+      );
+    }
   };
 
   // Dynamic styles using the current theme
-  const dynamicStyles = StyleSheet.create({
+  const styles = StyleSheet.create({
     bookCard: {
       marginBottom: spacing.md,
       borderRadius: 12,
@@ -208,51 +331,71 @@ export default function SearchPage(): JSX.Element {
       justifyContent: 'center',
       marginTop: 4,
     },
+    filterItem: {
+      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.md,
+      marginRight: spacing.sm,
+      height: 36,
+      borderRadius: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    activeFilterItem: {
+      backgroundColor: colors.primary,
+    },
+    filterText: {
+      color: colors.text,
+    },
+    activeFilterText: {
+      color: 'white',
+    }
   });
 
-  // Enhanced book item rendering with improved design
-  const renderBookItem = ({ item }: ListRenderItemInfo<Book>): JSX.Element => (
+  // Book item renderer
+  const renderBookItem = ({ item }: { item: Book }): JSX.Element => (
     <TouchableOpacity 
       activeOpacity={0.7}
       onPress={() => openBookDetail(item)}
     >
-      <Card style={dynamicStyles.bookCard}>
-        <View style={dynamicStyles.bookContainer}>
+      <Card style={styles.bookCard}>
+        <View style={styles.bookContainer}>
           {/* Book Cover */}
-          <View style={dynamicStyles.coverContainer}>
+          <View style={styles.coverContainer}>
             <Image 
               source={{ uri: item.cover }} 
-              style={dynamicStyles.coverImage}
+              style={styles.coverImage}
               resizeMode="cover"
             />
-            <View style={dynamicStyles.ratingBadge}>
+            <View style={styles.ratingBadge}>
               <Ionicons name="star" size={12} color="#fff" />
-              <Text style={dynamicStyles.ratingText}>{item.rating.toFixed(1)}</Text>
+              <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
             </View>
           </View>
           
           {/* Book Details */}
-          <View style={dynamicStyles.detailsContainer}>
-            <Text style={dynamicStyles.bookTitle} numberOfLines={2}>{item.title}</Text>
-            <Text style={dynamicStyles.authorName}>{item.author}</Text>
+          <View style={styles.detailsContainer}>
+            <Text style={styles.bookTitle} numberOfLines={2}>{item.title}</Text>
+            <Text style={styles.authorName}>{item.author}</Text>
             
-            <View style={dynamicStyles.tagsContainer}>
-              <View style={dynamicStyles.genreTag}>
-                <Text style={dynamicStyles.tagText}>{item.genre}</Text>
+            <View style={styles.tagsContainer}>
+              <View style={styles.genreTag}>
+                <Text style={styles.tagText}>{item.genre}</Text>
               </View>
-              <View style={dynamicStyles.yearTag}>
-                <Text style={dynamicStyles.tagText}>{item.year}</Text>
+              <View style={styles.yearTag}>
+                <Text style={styles.tagText}>{item.year}</Text>
               </View>
             </View>
             
-            <View style={dynamicStyles.pagesContainer}>
+            <View style={styles.pagesContainer}>
               <Ionicons name="book-outline" size={14} color={colors.textSecondary} />
-              <Text style={dynamicStyles.pagesText}>{item.totalPages} pages</Text>
+              <Text style={styles.pagesText}>{item.totalPages} pages</Text>
             </View>
             
             <OutlineButton 
               title="Add to Library" 
-              style={dynamicStyles.addButton} 
+              style={styles.addButton} 
               onPress={(e) => {
                 e.stopPropagation(); // Prevent opening detail modal
                 handleAddToLibrary(item);
@@ -263,11 +406,6 @@ export default function SearchPage(): JSX.Element {
       </Card>
     </TouchableOpacity>
   );
-
-  useEffect(() => {
-    // Auto-load all books on first render
-    handleSearch();
-  }, []);
 
   return (
     <SafeAreaView style={baseStyles.container}>
@@ -298,23 +436,16 @@ export default function SearchPage(): JSX.Element {
         {genres.map((genre) => (
           <TouchableOpacity
             key={genre}
-            style={{
-              paddingVertical: spacing.xs,
-              paddingHorizontal: spacing.md,
-              marginRight: spacing.sm,
-              height: 36,
-              backgroundColor: activeGenreFilter === genre ? colors.primary : colors.background,
-              borderRadius: spacing.md,
-              borderWidth: 1,
-              borderColor: colors.border,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
+            style={[
+              styles.filterItem,
+              activeGenreFilter === genre && styles.activeFilterItem
+            ]}
             onPress={() => handleGenreFilter(genre)}
           >
-            <Paragraph style={{ 
-              color: activeGenreFilter === genre ? 'white' : colors.text 
-            }}>
+            <Paragraph style={[
+              styles.filterText,
+              activeGenreFilter === genre && styles.activeFilterText
+            ]}>
               {genre}
             </Paragraph>
           </TouchableOpacity>
@@ -335,7 +466,7 @@ export default function SearchPage(): JSX.Element {
           <FlatList
             data={searchResults}
             renderItem={renderBookItem}
-            keyExtractor={(item: Book) => item.id}
+            keyExtractor={(item) => item.isbn}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 20 }}
           />
@@ -348,13 +479,22 @@ export default function SearchPage(): JSX.Element {
         />
       )}
 
+      {/* Add ChatBot Bubble */}
+      <ChatBotBubble onAddToLibrary={handleAddToLibrary} />
+
       {/* Book Detail Modal */}
       {selectedBook && (
         <BookDetailModal
           visible={showDetailModal}
           onClose={() => setShowDetailModal(false)}
-          book={selectedBook}
-          onAddToLibrary={() => handleAddToLibrary(selectedBook)}
+          book={{
+            ...selectedBook,
+            status: 'to read',
+            currentPage: 0,
+            userID: 0,
+            dateAdded: new Date().toISOString()
+          } as BookRecord}
+          onUpdateProgress={() => {}}
           isInLibrary={false}
         />
       )}

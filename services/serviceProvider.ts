@@ -1,13 +1,11 @@
-async function GetISBNBook(endpoint: string) {
+async function GetBookFromGoogleAPI(endpoint: string) {
     try {
-        console.log(`get isbn request: ${process.env.EXPO_PUBLIC_ISBN_API_ENDPOINT}/${endpoint}`);
-        console.log(`authorizing with key ${process.env.EXPO_PUBLIC_ISBN_API_KEY}`);
+        console.log(`get isbn request: https://www.googleapis.com/books/v1/volumes?q=isbn:${endpoint}`);
 
-        const resp = await fetch(`${process.env.EXPO_PUBLIC_ISBN_API_ENDPOINT}/${endpoint}`, {
+        const resp = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${endpoint}`, {
             method: "GET",
             headers: {
-                "Content-Type": "application/json",
-                "Authorization": `${process.env.EXPO_PUBLIC_ISBN_API_KEY}`,
+                "Accept": "application/json",
             }
         });
 
@@ -18,11 +16,11 @@ async function GetISBNBook(endpoint: string) {
     }
 }
 
-async function GetISBNBooks(isbns: string[]) {
+async function GetBooksFromGoogleAPI(isbns: string[]) {
     try {
         const isbn_books = isbns.join(",");
         console.log("Posting ISBNs:", isbn_books);
-        const resp = await fetch("https://api2.isbndb.com/books", {
+        const resp = await fetch(`${process.env.EXPO_PUBLIC_ISBN_API_ENDPOINT}`, {
             method: "POST",
             headers: {
                 "Accept": "application/json",
@@ -120,4 +118,4 @@ async function DeleteWithBody(endpoint: string, bodyObj: string) {
     }
 }
 
-export { GetISBNBook, GetISBNBooks, Get, GetWithQueryParams, Post, Patch, Delete, DeleteWithBody };
+export { GetBookFromGoogleAPI as GetISBNBook, GetBooksFromGoogleAPI as GetISBNBooks, Get, GetWithQueryParams, Post, Patch, Delete, DeleteWithBody };

@@ -28,6 +28,8 @@ import {
   nightReader 
 } from '../styles/defaultStyles';
 import { useTheme } from '../styles/themeContext';
+import { logoutUser } from '../services/authService';
+import { useRouter } from 'expo-router';
 
 // Define types for settings
 interface ThemeOption {
@@ -46,6 +48,7 @@ export default function SettingsPage(): JSX.Element {
   const [dailyReminderEnabled, setDailyReminderEnabled] = useState<boolean>(true);
   const [autoSync, setAutoSync] = useState<boolean>(true);
   const [offlineMode, setOfflineMode] = useState<boolean>(false);
+  const router = useRouter();
 
   // Define available themes
   const themes: ThemeOption[] = [
@@ -96,8 +99,9 @@ export default function SettingsPage(): JSX.Element {
           text: "Logout", 
           style: "destructive",
           onPress: () => {
-            // In a real app, this would clear auth state and redirect to login
+            logoutUser();
             Alert.alert("Logged Out", "You have been logged out successfully");
+            router.replace('/auth/login');
           }
         }
       ]

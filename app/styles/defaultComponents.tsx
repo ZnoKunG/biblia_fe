@@ -124,7 +124,7 @@ export const Input = ({ style, ...props }: InputProps) => {
 interface HeadingProps extends TextProps {
   children: ReactNode;
   level?: 1 | 2 | 3 | 4;
-  style?: TextStyle;
+  style?: StyleProp<TextStyle>;
 }
 
 export const Heading = ({ children, level = 1, style, ...props }: HeadingProps) => {
@@ -148,13 +148,13 @@ interface ParagraphProps extends TextProps {
   children: ReactNode;
   secondary?: boolean;
   small?: boolean;
-  style?: TextStyle;
+  style?: StyleProp<TextStyle>;
 }
 
 export const Paragraph = ({ children, secondary, small, style, ...props }: ParagraphProps) => {
   const { baseStyles } = useTheme();
   
-  let textStyle = baseStyles.text;
+  let textStyle: TextStyle = baseStyles.text;
   if (secondary) textStyle = baseStyles.textSecondary;
   if (small) textStyle = baseStyles.textSmall;
 

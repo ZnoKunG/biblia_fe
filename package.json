@@ -3,9 +3,8 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "start": "expo start --clear",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "dev": "NODE_ENV=development expo start --clear",
+    "emu": "NODE_ENV=emulator expo start --clear",
     "web": "expo start --web",
     "test": "jest --watchAll"
   },
