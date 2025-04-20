@@ -29,6 +29,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Get, Post } from '@/services/serviceProvider';
 import { getCurrentUserID } from '../services/authService';
 
+// API configuration
+const API_ENDPOINTS = {
+  chat: `${process.env.EXPO_PUBLIC_CHATBOT_ENDPOINT}/api/chat`,
+  chatStream: `${process.env.EXPO_PUBLIC_CHATBOT_ENDPOINT}/api/chat/stream`
+};
+
 // Define message types
 type MessageType = 'user' | 'bot' | 'book-recommendation';
 
@@ -172,6 +178,7 @@ const ChatBotBubble = ({ onAddToLibrary }: ChatBotBubbleProps): JSX.Element => {
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [isBouncing, setIsBouncing] = useState<boolean>(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [useStreamingApi, setUseStreamingApi] = useState<boolean>(false);
   
   const bubbleAnimation = useRef(new Animated.Value(1)).current;
   const chatModalAnimation = useRef(new Animated.Value(0)).current;
@@ -247,6 +254,68 @@ const ChatBotBubble = ({ onAddToLibrary }: ChatBotBubbleProps): JSX.Element => {
     });
   };
 
+  // Handle non-streaming API request
+  const sendNonStreamingRequest = async (userQuery: string) => {
+    try {
+      const reqBody = {
+        query: userQuery,
+        userId: userId || '0',
+        stream: false
+      };
+
+      console.log(`Sending chat request at ${API_ENDPOINTS.chat} with body ${JSON.stringify(reqBody)}`)
+      const response = await fetch(API_ENDPOINTS.chat, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(reqBody),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to get response from chatbot: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      // Check if response contains book recommendations
+      if (data.recommendations && data.recommendations.length > 0) {
+        const botMessage: ChatMessage = {
+          id: Date.now().toString(),
+          content: data.message || 'Here are some books you might enjoy:',
+          type: 'book-recommendation',
+          timestamp: new Date(),
+          books: data.recommendations.map((book: any) => ({
+            isbn: book.isbn,
+            title: book.title,
+            author: book.author,
+            cover: book.cover,
+            genre: book.genre,
+            totalPages: book.pageCount || 0,
+            status: 'to read',
+            currentPage: 0,
+            userID: userId ? parseInt(userId) : 0,
+            dateAdded: new Date().toISOString(),
+          })),
+        };
+        setMessages(prevMessages => [...prevMessages, botMessage]);
+      } else {
+        const botMessage: ChatMessage = {
+          id: Date.now().toString(),
+          content: data.message || 'I couldn\'t find any specific recommendations at the moment.',
+          type: 'bot',
+          timestamp: new Date(),
+        };
+        setMessages(prevMessages => [...prevMessages, botMessage]);
+      }
+      
+      setIsTyping(false);
+    } catch (error) {
+      console.error('Error in non-streaming chat request:', error);
+      throw error;
+    }
+  };
+
   // Function to handle sending a message
   const handleSendMessage = async () => {
     if (!inputText.trim()) return;
@@ -268,99 +337,122 @@ const ChatBotBubble = ({ onAddToLibrary }: ChatBotBubbleProps): JSX.Element => {
     setIsTyping(true);
     
     try {
-      // For demo purposes - uncomment when you have a real API
-      // Make API call to chatbot service
-      /* 
-      const response = await fetch('https://your-chatbot-api.com/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: userQuery,
-          userId: userId,
-          // Add any other necessary data
-        }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to get response from chatbot');
-      }
-      
-      // Check if response is a stream
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('text/event-stream')) {
-        // Handle streaming response
-        const reader = response.body?.getReader();
-        if (!reader) throw new Error('Response body cannot be read');
-        
-        let accumulatedContent = '';
-        const streamMessage: ChatMessage = {
-          id: Date.now().toString(),
-          content: '',
-          type: 'bot',
-          timestamp: new Date()
-        };
-        
-        // Add empty message that will be updated
-        setMessages(prevMessages => [...prevMessages, streamMessage]);
-        
-        // Read stream chunks
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+      if (useStreamingApi) {
+        try {
+          // Create empty bot message that will be filled by the stream
+          const streamMessage: ChatMessage = {
+            id: Date.now().toString(),
+            content: '',
+            type: 'bot',
+            timestamp: new Date()
+          };
           
-          const chunk = new TextDecoder().decode(value);
-          accumulatedContent += chunk;
+          // Add empty message that will be updated
+          setMessages(prevMessages => [...prevMessages, streamMessage]);
           
-          // Update the last message with new content
-          setMessages(prevMessages => {
-            const updatedMessages = [...prevMessages];
-            const lastMessage = updatedMessages[updatedMessages.length - 1];
-            lastMessage.content = accumulatedContent;
-            return updatedMessages;
+          const reqBody = {
+            query: userQuery,
+            userId: userId || '0',
+            stream: true
+          };
+
+          // Make API call to chatbot service
+          console.log(`Requesting stream chatbot at ${API_ENDPOINTS.chatStream} with body ${JSON.stringify(reqBody)}`);
+          const response = await fetch(API_ENDPOINTS.chatStream, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(reqBody),
           });
+          
+          if (!response.ok) {
+            throw new Error(`Failed to get response from chatbot: ${response.statusText}`);
+          }
+          
+          // Handle streaming response
+          const reader = response.body?.getReader();
+          if (!reader) throw new Error('Response body cannot be read');
+          
+          let accumulatedContent = '';
+          
+          // Read stream chunks
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const chunk = new TextDecoder().decode(value);
+            
+            // Parse SSE format (data: {...}\n\n)
+            const lines = chunk.split('\n');
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                try {
+                  const eventData = JSON.parse(line.substring(6));
+                  
+                  if (eventData.chunk) {
+                    accumulatedContent += eventData.chunk;
+                    
+                    // Update the last message with new content
+                    setMessages(prevMessages => {
+                      const updatedMessages = [...prevMessages];
+                      const lastMessage = updatedMessages[updatedMessages.length - 1];
+                      lastMessage.content = accumulatedContent;
+                      return updatedMessages;
+                    });
+                  }
+                  
+                  // If this is the final chunk with recommendations
+                  if (eventData.done && eventData.recommendations && eventData.recommendations.length > 0) {
+                    // Replace the current bot message with a book recommendation message
+                    setMessages(prevMessages => {
+                      const updatedMessages = [...prevMessages];
+                      // Remove the last message
+                      updatedMessages.pop();
+                      
+                      // Add a new book recommendation message
+                      updatedMessages.push({
+                        id: Date.now().toString(),
+                        content: accumulatedContent,
+                        type: 'book-recommendation',
+                        timestamp: new Date(),
+                        books: eventData.recommendations.map((book: any) => ({
+                          isbn: book.isbn,
+                          title: book.title,
+                          author: book.author,
+                          cover: book.cover,
+                          genre: book.genre,
+                          totalPages: book.pageCount || 0,
+                          status: 'to read',
+                          currentPage: 0,
+                          userID: userId ? parseInt(userId) : 0,
+                          dateAdded: new Date().toISOString(),
+                        })),
+                      });
+                      
+                      return updatedMessages;
+                    });
+                  }
+                } catch (error) {
+                  console.error('Error parsing SSE data:', error);
+                }
+              }
+            }
+          }
+          
+        } catch (streamError) {
+          console.warn('Streaming request failed, falling back to regular request:', streamError);
+          // Remove the last message (the empty stream message)
+          setMessages(prevMessages => prevMessages.slice(0, -1));
+          // Fall back to non-streaming request
+          await sendNonStreamingRequest(userQuery);
         }
       } else {
-        // Handle regular JSON response
-        const data = await response.json();
-        
-        // Check if response contains book recommendations
-        if (data.recommendations && data.recommendations.length > 0) {
-          const botMessage: ChatMessage = {
-            id: Date.now().toString(),
-            content: data.message || 'Here are some books you might enjoy:',
-            type: 'book-recommendation',
-            timestamp: new Date(),
-            books: data.recommendations.map((book: any) => ({
-              isbn: book.isbn,
-              title: book.title,
-              author: book.author,
-              cover: book.cover,
-              genre: book.genre,
-              totalPages: book.pageCount || 0,
-              status: 'to read',
-              currentPage: 0,
-              userID: userId ? parseInt(userId) : 0,
-              dateAdded: new Date().toISOString(),
-            })),
-          };
-          setMessages(prevMessages => [...prevMessages, botMessage]);
-        } else {
-          const botMessage: ChatMessage = {
-            id: Date.now().toString(),
-            content: data.message || 'I couldn\'t find any specific recommendations at the moment.',
-            type: 'bot',
-            timestamp: new Date(),
-          };
-          setMessages(prevMessages => [...prevMessages, botMessage]);
-        }
+        // Use non-streaming API directly if streaming is disabled
+        await sendNonStreamingRequest(userQuery);
       }
-      */
       
-      // Using simulateResponse for demo purposes - remove when API is ready
-      simulateResponse(userQuery);
-      
+      setIsTyping(false);
     } catch (error) {
       console.error('Error in chat request:', error);
       // Add error message
@@ -371,60 +463,8 @@ const ChatBotBubble = ({ onAddToLibrary }: ChatBotBubbleProps): JSX.Element => {
         timestamp: new Date(),
       };
       setMessages(prevMessages => [...prevMessages, errorMessage]);
-    }
-  };
-  
-  // For demo purposes - simulate a response without API
-  const simulateResponse = (query: string) => {
-    setTimeout(() => {
-      // For demo, can be removed when you have a real API
-      if (query.toLowerCase().includes('fantasy') || query.toLowerCase().includes('mistborn')) {
-        // Simulate book recommendations
-        const botMessage: ChatMessage = {
-          id: Date.now().toString(),
-          content: "Based on your interest in fantasy, here are some books you might enjoy:",
-          type: 'book-recommendation',
-          timestamp: new Date(),
-          books: [
-            {
-              isbn: "9781250318541",
-              title: "Mistborn: The Final Empire",
-              author: "Brandon Sanderson",
-              cover: "http://books.google.com/books/content?id=iCdvuQEACAAJ&printsec=frontcover&img=1&zoom=1&source=gbs_api",
-              genre: "Fantasy",
-              totalPages: 672,
-              status: 'to read',
-              currentPage: 0,
-              userID: userId ? parseInt(userId) : 0,
-              dateAdded: new Date().toISOString(),
-            },
-            {
-              isbn: "9780765326355",
-              title: "The Way of Kings",
-              author: "Brandon Sanderson",
-              cover: "https://books.google.com/books/content?id=hVf_ygEACAAJ&printsec=frontcover&img=1&zoom=1",
-              genre: "Fantasy",
-              totalPages: 1007,
-              status: 'to read',
-              currentPage: 0,
-              userID: userId ? parseInt(userId) : 0,
-              dateAdded: new Date().toISOString(),
-            }
-          ]
-        };
-        setMessages(prevMessages => [...prevMessages, botMessage]);
-      } else {
-        // Simple text response
-        const botMessage: ChatMessage = {
-          id: Date.now().toString(),
-          content: "I can help you discover new books based on your interests. Try asking about specific genres like 'fantasy' or 'mystery', or ask about similar books to ones you've enjoyed!",
-          type: 'bot',
-          timestamp: new Date(),
-        };
-        setMessages(prevMessages => [...prevMessages, botMessage]);
-      }
       setIsTyping(false);
-    }, 1000);
+    }
   };
 
   // Function to add a book to the user's library
@@ -478,6 +518,11 @@ const ChatBotBubble = ({ onAddToLibrary }: ChatBotBubbleProps): JSX.Element => {
   // Function to clear chat history
   const clearChat = () => {
     setMessages(DEFAULT_MESSAGES);
+  };
+
+  // Toggle streaming API
+  const toggleStreamingApi = () => {
+    setUseStreamingApi(!useStreamingApi);
   };
 
   // Generate styles using the theme
@@ -562,6 +607,12 @@ const ChatBotBubble = ({ onAddToLibrary }: ChatBotBubbleProps): JSX.Element => {
       alignSelf: 'flex-start',
       marginBottom: spacing.sm,
     },
+    toggleButton: {
+      marginRight: spacing.md,
+      padding: spacing.xs,
+      backgroundColor: colors.card,
+      borderRadius: spacing.sm,
+    }
   });
 
   return (
@@ -611,6 +662,13 @@ const ChatBotBubble = ({ onAddToLibrary }: ChatBotBubbleProps): JSX.Element => {
                 <View style={styles.header}>
                   <Text style={styles.headerTitle}>BookBot Assistant</Text>
                   <Row>
+                    <TouchableOpacity onPress={toggleStreamingApi} style={styles.toggleButton}>
+                      <Ionicons 
+                        name={useStreamingApi ? "flash" : "flash-off"} 
+                        size={20} 
+                        color={useStreamingApi ? colors.primary : colors.textSecondary} 
+                      />
+                    </TouchableOpacity>
                     <TouchableOpacity onPress={clearChat} style={{ marginRight: spacing.md }}>
                       <Ionicons name="refresh-outline" size={24} color={colors.text} />
                     </TouchableOpacity>
@@ -628,13 +686,15 @@ const ChatBotBubble = ({ onAddToLibrary }: ChatBotBubbleProps): JSX.Element => {
                     contentContainerStyle={{ paddingBottom: spacing.md }}
                     showsVerticalScrollIndicator={false}
                   >
-                    {messages.map((message) => (
-                      <ChatMessageItem 
-                        key={message.id} 
-                        message={message} 
-                        onAddToLibrary={handleAddToLibrary} 
-                      />
-                    ))}
+                    {messages.map((message) => {
+                      return (
+                        <ChatMessageItem 
+                          key={message.id} 
+                          message={message} 
+                          onAddToLibrary={handleAddToLibrary} 
+                        />
+                      )
+                    })}
                     
                     {isTyping && (
                       <View style={styles.typingIndicator}>

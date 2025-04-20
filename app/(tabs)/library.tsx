@@ -1,4 +1,4 @@
-// app/(tabs)/library.tsx with detail modal
+// app/(tabs)/library.tsx with updated book model
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
@@ -28,12 +28,12 @@ import {
   EmptyState
 } from '../styles/defaultComponents';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
-import mockRecords from '@/utils/mockRecords';
 import BookDetailModal from '../components/bookDetail';
 import { useTheme } from '../styles/themeContext';
-import { Get, GetISBNBook, GetWithQueryParams, Post } from '@/services/serviceProvider';
+import { Get, GetWithQueryParams, Put, Post } from '@/services/serviceProvider';
 import { getCurrentUserID, getIsLoggedIn } from '../services/authService';
 import { useRouter } from 'expo-router';
+import { getBookByISBN, searchBooks } from '../services/googleBookService';
 
 export default function LibraryPage(): JSX.Element {
   const [loading, setLoading] = useState<boolean>(true);
@@ -62,6 +62,9 @@ export default function LibraryPage(): JSX.Element {
     status: 'to read',
     currentPage: 0,
     totalPages: 0,
+    year: new Date().getFullYear(),
+    rating: 0,
+    description: '',
   });
 
   const checkLogin = async () => {
@@ -70,142 +73,126 @@ export default function LibraryPage(): JSX.Element {
 
       if (!loggedin) {
         router.replace('/auth/login');
-        return;
+        return false;
       }
+      return true;
     }
     catch (err) {
-      console.log(err);
+      console.log("Error checking login:", err);
+      return false;
     }
   }
 
   // Fetch books data
-  useEffect(() => {
-    checkLogin();
-
-    const timer = setTimeout(async () => {
+  const fetchUserBooks = async () => {
+    try {
+      setLoading(true);
       const currentUserID = await getCurrentUserID();
-      // Fetch book record data of the user
-
-      if (!currentUserID)
-      {
-        console.log("cannot find UserID in local storage");
+      
+      if (!currentUserID) {
+        console.log("Cannot find UserID in local storage");
+        setLoading(false);
         return;
       }
 
       const queryParams = { userID: currentUserID };
       const resp = await GetWithQueryParams('records', queryParams);
       
-      if (!resp) {
-        console.log("cannot query record data from the user ", currentUserID);
-        return;
-      }
-
-      if (!resp.ok) {
-        console.log("Error: " + resp.status);
+      if (!resp || !resp.ok) {
+        console.log("Error fetching user records:", resp?.status);
+        setLoading(false);
         return;
       }
 
       const recordResp = await resp.json();
-      console.log(recordResp);
-
-      const records: BookRecord[] = recordResp.data;
+      const records: BookRecord[] = recordResp.data || [];
       setBooks(records);
+    } catch (error) {
+      console.error("Error fetching user books:", error);
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
+  };
 
-    return () => clearTimeout(timer);
+  // Load initial data
+  useEffect(() => {
+    const initializeData = async () => {
+      const isLoggedIn = await checkLogin();
+      if (!isLoggedIn) return;
+      
+      fetchUserBooks();
+    };
+    
+    initializeData();
   }, []);
 
-  const onRefresh = React.useCallback((): void => {
+  const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
+    await fetchUserBooks();
+    setRefreshing(false);
   }, []);
 
-  const processGoogleBookAPI = (data: any) => {
+  const processGoogleBookAPI = (book: Book) => {
     try {
-      const item = data.items[0];
-
-      // Safely extract industry identifiers (ISBN)
-    const isbn = item.volumeInfo.industryIdentifiers ? 
-      item.volumeInfo.industryIdentifiers[0].identifier : '';
-    
-    // Safely extract other potentially undefined fields
-    const title = item.volumeInfo.title || '';
-    const author = item.volumeInfo.authors && item.volumeInfo.authors.length > 0 ? 
-      item.volumeInfo.authors[0] : 'Unknown Author';
-    const cover = item.volumeInfo.imageLinks ? 
-      item.volumeInfo.imageLinks.thumbnail : '';
-    const genre = item.volumeInfo.categories && item.volumeInfo.categories.length > 0 ? 
-      item.volumeInfo.categories[0] : 'Uncategorized';
-    const totalPages = item.volumeInfo.pageCount || 0;
-    
-    setFormData({
-      userID: 0,
-      isbn: isbn,
-      title: title,
-      author: author,
-      cover: cover,
-      genre: genre,
-      totalPages: totalPages,
-      status: formData.status || 'to read',
-      currentPage: 0,
-    });
-    
-    console.log(formData);
-  } catch (err: any) {
-    console.log(err);
-  }
-};
+      setFormData({
+        userID: 0,
+        ...book,
+        status: 'to read',
+        currentPage: 0,
+      });
+    } catch (err: any) {
+      console.error("Error processing Google Book API data:", err);
+      Alert.alert(
+        "Error", 
+        "There was a problem processing the book information. Please enter details manually.",
+        [{ text: "OK" }]
+      );
+    }
+  };
 
   const handleAddBook = async (): Promise<void> => {
     // Validation
-    console.log(`Adding new book with ${JSON.stringify(formData)}`);
-
     if (!formData.title || !formData.author) {
       Alert.alert('Missing Information', 'Please enter at least title and author');
       return;
     }
     
-    const currentUserID = await getCurrentUserID();
-      // Fetch book record data of the user
+    try {
+      const currentUserID = await getCurrentUserID();
+        
+      if (!currentUserID) {
+        console.log("Cannot find UserID in local storage");
+        return;
+      }
+      
+      const newBook: BookRecord = {
+        ...formData,
+        userID: parseInt(currentUserID) || 0,
+        dateAdded: new Date().toISOString(),
+      };
 
-    if (!currentUserID)
-    {
-      console.log("cannot find UserID in local storage");
-      return;
+      const resp = await Post("records", JSON.stringify(newBook));
+
+      if (!resp || !resp.ok) {
+        console.error("Error creating record:", resp?.status);
+        const respErr = await resp?.json();
+        console.log(respErr);
+        Alert.alert('Error', "Failed to add book to library. Please try again.");
+        return;
+      }
+
+      const createRecordResp = await resp.json();
+      const newRecord: BookRecord = createRecordResp.data;
+
+      setBooks(prevBooks => [newRecord, ...prevBooks]);
+      setShowAddModal(false);
+      resetForm();
+      
+      Alert.alert('Success', 'Book added to your library');
+    } catch (error) {
+      console.error("Error adding book:", error);
+      Alert.alert('Error', "There was a problem adding the book. Please try again.");
     }
-
-    console.log(`Current user id: ${currentUserID}`);
-    
-    const newBook: BookRecord = {
-      ...formData,
-      userID: parseInt(currentUserID) || 0,
-      dateAdded: new Date().toISOString(),
-    };
-
-    const resp = await Post("records", JSON.stringify(newBook));
-
-    if (!resp) {
-      Alert.alert('Error', "Cannot create record");
-      return;
-    }
-
-    if (!resp.ok) {
-      console.log(resp.status);
-      const respErr = await resp.json();
-      console.log(respErr);
-      return;
-    }
-
-    const createRecordResp: Response = await resp.json();
-    console.log(createRecordResp);
-    const newRecord: BookRecord = createRecordResp.data;
-
-    setBooks([newRecord, ...books]);
-    setShowAddModal(false);
-    resetForm();
   };
 
   const resetForm = (): void => {
@@ -219,6 +206,9 @@ export default function LibraryPage(): JSX.Element {
       status: 'to read',
       currentPage: 0,
       totalPages: 0,
+      year: new Date().getFullYear(),
+      rating: 0,
+      description: '',
     });
   };
 
@@ -228,28 +218,38 @@ export default function LibraryPage(): JSX.Element {
     
     setTimeout(async () => {
       if (result.data) {
+        try {
+          const book = await getBookByISBN(result.data);
 
-        const resp = await GetISBNBook(result.data);
-
-        if (!resp)
-        {
-          console.log("null request!");
-          return;
+          if (!book) {
+            console.error("Error fetching book by ISBN: ", result.data);
+            Alert.alert(
+              "Book Not Found", 
+              "No information was found for this ISBN. Please enter details manually.",
+              [{ text: "OK" }]
+            );
+            setTimeout(() => {
+              setShowAddModal(true);
+            }, 300);
+            return;
+          }
+          
+          processGoogleBookAPI(book);
+          
+          setTimeout(() => {
+            setShowAddModal(true);
+          }, 300);
+        } catch (error) {
+          console.error("Error processing scanned ISBN:", error);
+          Alert.alert(
+            "Error", 
+            "There was a problem retrieving book information. Please try again or enter details manually.",
+            [{ text: "OK" }]
+          );
+          setTimeout(() => {
+            setShowAddModal(true);
+          }, 300);
         }
-
-        if (!resp.ok) {
-          console.log(resp.status);
-          return;
-        }
-        
-        const data = await resp.json();
-        
-        processGoogleBookAPI(data);
-        
-        setTimeout(() => {
-          console.log("Opening add modal...");
-          setShowAddModal(true);
-        }, 300);
       }
     }, 500);
   };
@@ -258,27 +258,62 @@ export default function LibraryPage(): JSX.Element {
     ? books 
     : books.filter(book => book.status === filter);
 
-  const updateBookProgress = (isbn: string, progress: number): void => {
-    const updatedBooks = books.map(record => {
-      if (record.isbn === isbn) {
-        return {
-          ...record,
-          currentPage: progress,
-          status: progress === record.totalPages ? 'finished' : 'in progress' as 'finished' | 'in progress',
-        };
+  const updateBookProgress = async (isbn: string, progress: number): Promise<void> => {
+    try {
+      const bookToUpdate = books.find(book => book.isbn === isbn);
+      
+      if (!bookToUpdate) {
+        console.error("Book not found for progress update:", isbn);
+        return;
       }
-      return record;
-    });
-    
-    setBooks(updatedBooks);
-    
-    // If the detail modal is open, update the selected book
-    if (selectedBook && selectedBook.isbn === isbn) {
-      setSelectedBook({
-        ...selectedBook,
+      
+      const newStatus = progress === bookToUpdate.totalPages ? 'finished' : (progress > 0 ? 'in progress' : bookToUpdate.status);
+      
+      const updatedBook = {
+        ...bookToUpdate,
         currentPage: progress,
-        status: progress === selectedBook.totalPages ? 'finished' : 'in progress',
+        status: newStatus as 'to read' | 'in progress' | 'finished',
+      };
+      
+      const currentUserID = await getCurrentUserID();
+      
+      if (!currentUserID) {
+        console.log("Cannot find UserID in local storage");
+        setLoading(false);
+        return;
+      }
+
+      // Update on server
+      const queryParams = {
+        userId: currentUserID,
+        isbn,
+      }
+      const resp = await Put(`records`, queryParams, JSON.stringify(updatedBook));
+      
+      if (!resp || !resp.ok) {
+        console.error("Error updating book progress:", resp?.status);
+        Alert.alert("Error", "Failed to update progress. Please try again.");
+        return;
+      }
+      
+      // Update local state
+      const updatedBooks = books.map(record => {
+        if (record.isbn === isbn) {
+          return updatedBook;
+        }
+        return record;
       });
+      
+      setBooks(updatedBooks);
+      
+      // If the detail modal is open, update the selected book
+      if (selectedBook && selectedBook.isbn === isbn) {
+        setSelectedBook(updatedBook);
+      }
+      
+    } catch (error) {
+      console.error("Error updating book progress:", error);
+      Alert.alert("Error", "Failed to update progress. Please try again.");
     }
   };
 
@@ -296,7 +331,7 @@ export default function LibraryPage(): JSX.Element {
       <Card>
         <Row>
           <Image 
-            source={{ uri: item.cover }} 
+            source={{ uri: item.cover || 'https://via.placeholder.com/70x100?text=No+Cover' }} 
             style={{ width: 70, height: 100, borderRadius: 8 }} 
           />
           <View style={{ marginLeft: spacing.md, flex: 1 }}>
@@ -309,7 +344,7 @@ export default function LibraryPage(): JSX.Element {
             
             {/* Progress section */}
             <View style={{ marginTop: spacing.sm }}>
-              {item.status !== 'to read' && (
+              {item.status !== 'to read' && item.totalPages > 0 && (
                 <>
                   <Row justify="between">
                     <Paragraph small>Progress</Paragraph>
@@ -352,8 +387,8 @@ export default function LibraryPage(): JSX.Element {
                     title="Update Progress" 
                     onPress={(e) => {
                       e.stopPropagation(); // Prevent triggering the card touch
-                      const newProgress = Math.min(item.currentPage + 10, item.totalPages);
-                      updateBookProgress(item.isbn, newProgress);
+                      // Open detail modal to update progress
+                      openBookDetail(item);
                     }}
                     style={{ flex: 1 }}
                   />
@@ -564,38 +599,64 @@ export default function LibraryPage(): JSX.Element {
                   />
                 </View>
                 <View style={{ flex: 1, marginLeft: spacing.sm }}>
-                  <Paragraph style={{ marginBottom: spacing.sm }}>Status</Paragraph>
-                  <View style={{ 
-                    flexDirection: 'row', 
-                    marginBottom: spacing.md,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    borderRadius: 8,
-                    overflow: 'hidden'
-                  }}>
-                    {(['to read', 'in progress', 'finished'] as const).map((status) => (
-                      <TouchableOpacity
-                        key={status}
-                        style={{
-                          flex: 1,
-                          padding: spacing.sm,
-                          backgroundColor: formData.status === status ? colors.secondary : 'transparent',
-                          alignItems: 'center',
-                        }}
-                        onPress={() => setFormData({...formData, status})}
-                      >
-                        <Paragraph style={{ 
-                          color: formData.status === status ? 'white' : colors.text,
-                          fontSize: 12,
-                        }}>
-                          {status === 'to read' ? 'To Read' : 
-                           status === 'in progress' ? 'Reading' : 'Finished'}
-                        </Paragraph>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+                  <Paragraph style={{ marginBottom: spacing.sm }}>Year</Paragraph>
+                  <Input
+                    placeholder="Publication year"
+                    value={formData.year?.toString() || ''}
+                    onChangeText={(text: string) => setFormData({...formData, year: parseInt(text) || 0})}
+                    keyboardType="numeric"
+                    style={{ marginBottom: spacing.md }}
+                  />
                 </View>
               </Row>
+
+              <Paragraph style={{ marginBottom: spacing.sm }}>Status</Paragraph>
+              <View style={{ 
+                flexDirection: 'row', 
+                marginBottom: spacing.md,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 8,
+                overflow: 'hidden'
+              }}>
+                {(['to read', 'in progress', 'finished'] as const).map((status) => (
+                  <TouchableOpacity
+                    key={status}
+                    style={{
+                      flex: 1,
+                      padding: spacing.sm,
+                      backgroundColor: formData.status === status ? colors.secondary : 'transparent',
+                      alignItems: 'center',
+                    }}
+                    onPress={() => setFormData({...formData, status})}
+                  >
+                    <Paragraph style={{ 
+                      color: formData.status === status ? 'white' : colors.text,
+                      fontSize: 12,
+                    }}>
+                      {status === 'to read' ? 'To Read' : 
+                       status === 'in progress' ? 'Reading' : 'Finished'}
+                    </Paragraph>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Paragraph style={{ marginBottom: spacing.sm }}>Cover Image URL (Optional)</Paragraph>
+              <Input
+                placeholder="Cover image URL"
+                value={formData.cover}
+                onChangeText={(text: string) => setFormData({...formData, cover: text})}
+                style={{ marginBottom: spacing.md }}
+              />
+
+              <Paragraph style={{ marginBottom: spacing.sm }}>Description (Optional)</Paragraph>
+              <Input
+                placeholder="Book description"
+                value={formData.description || ''}
+                onChangeText={(text: string) => setFormData({...formData, description: text})}
+                multiline
+                style={{ marginBottom: spacing.md, height: 100, textAlignVertical: 'top' }}
+              />
 
               <Button title="Add to Library" onPress={handleAddBook} />
             </ScrollView>
@@ -639,7 +700,6 @@ export default function LibraryPage(): JSX.Element {
             ) : (
               <CameraView
                 style={{ flex: 1 }}
-                facing="back"
                 barcodeScannerSettings={{
                   barcodeTypes: ["ean13", "ean8", "qr"]
                 }}
@@ -661,8 +721,6 @@ export default function LibraryPage(): JSX.Element {
           book={selectedBook}
           onUpdateProgress={(progress: number) => {
             updateBookProgress(selectedBook.isbn, progress);
-            // Close modal after updating progress
-            setShowDetailModal(false);
           }}
           isInLibrary={true}
         />

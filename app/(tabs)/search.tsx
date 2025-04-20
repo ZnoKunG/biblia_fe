@@ -31,19 +31,7 @@ import { useTheme } from '../styles/themeContext';
 import { useRouter } from 'expo-router';
 import { Get, Post } from '@/services/serviceProvider';
 import { getCurrentUserID, getIsLoggedIn } from '../services/authService';
-
-// Define Book interface if not already defined
-interface Book {
-  isbn: string;
-  title: string;
-  author: string;
-  cover: string;
-  genre: string;
-  rating: number;
-  year: number;
-  totalPages: number;
-  description?: string;
-}
+import { searchBooks } from '../services/googleBookService';
 
 export default function SearchPage(): JSX.Element {
   const { baseStyles, colors } = useTheme();
@@ -61,24 +49,6 @@ export default function SearchPage(): JSX.Element {
   const [genres, setGenres] = useState<string[]>(['All']);
   
   const router = useRouter();
-
-  const getAllBooks = async (): Promise<Book[]> => {
-    try {
-      const resp = await Get('books');
-
-      if (!resp || !resp.ok) {
-        console.log("Error fetching books:", resp?.status);
-        return [];
-      }
-
-      const responseData = await resp.json();
-      return responseData.data || [];
-    }
-    catch (err) {
-      console.log("Error in getAllBooks:", err);
-      return [];
-    }
-  };
 
   const extractGenres = (books: Book[]): string[] => {
     const uniqueGenres = [...new Set(books.map(book => book.genre))];
@@ -109,7 +79,7 @@ export default function SearchPage(): JSX.Element {
       
       setLoading(true);
       try {
-        const books = await getAllBooks();
+        const books = await searchBooks("mystery");
         setSearchResults(books);
         setGenres(extractGenres(books));
         setHasSearched(true);
@@ -128,7 +98,7 @@ export default function SearchPage(): JSX.Element {
     setHasSearched(true);
 
     try {
-      let results = await getAllBooks();
+      let results = await searchBooks("mystery");
       
       // Filter by search query if provided
       if (searchQuery.trim() !== '') {
@@ -161,7 +131,7 @@ export default function SearchPage(): JSX.Element {
       
       setTimeout(async () => {
         try {
-          let results = await getAllBooks();
+          let results = await searchBooks(genre);
           
           if (searchQuery.trim() !== '') {
             const query = searchQuery.toLowerCase();
@@ -209,6 +179,8 @@ export default function SearchPage(): JSX.Element {
         author: book.author,
         cover: book.cover,
         genre: book.genre,
+        rating: book.rating,
+        year: book.rating,
         status: 'to read',
         currentPage: 0,
         totalPages: book.totalPages || 0,

@@ -1,42 +1,3 @@
-async function GetBookFromGoogleAPI(endpoint: string) {
-    try {
-        console.log(`get isbn request: https://www.googleapis.com/books/v1/volumes?q=isbn:${endpoint}`);
-
-        const resp = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${endpoint}`, {
-            method: "GET",
-            headers: {
-                "Accept": "application/json",
-            }
-        });
-
-        return resp;
-    } catch (error) {
-        console.error("Error fetching ISBN:", error);
-        return null;
-    }
-}
-
-async function GetBooksFromGoogleAPI(isbns: string[]) {
-    try {
-        const isbn_books = isbns.join(",");
-        console.log("Posting ISBNs:", isbn_books);
-        const resp = await fetch(`${process.env.EXPO_PUBLIC_ISBN_API_ENDPOINT}`, {
-            method: "POST",
-            headers: {
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-                "Authorization": `${process.env.EXPO_PUBLIC_ISBN_API_KEY}`,
-            },
-            body: `isbns=${isbn_books}`,
-        });
-
-        return resp;
-    } catch (error) {
-        console.error("Error posting ISBNs:", error);
-        return null;
-    }
-}
-
 async function Get(endpoint: string) {
     try {
         console.log(`get request: ${process.env.EXPO_PUBLIC_API_ENDPOINT}/${endpoint}`);
@@ -74,18 +35,19 @@ async function Post(endpoint: string, bodyObj: string) {
     }
 }
 
-async function Patch(endpoint: string, id: string, bodyObj: string) {
+async function Put(endpoint: string, queryParams: Record<string, string>, bodyObj: string) {
     try {
-        console.log(`Try patch request: ${process.env.EXPO_PUBLIC_API_ENDPOINT}/${endpoint}/${id} with body: ${bodyObj}`);
-        return await fetch(`${process.env.EXPO_PUBLIC_API_ENDPOINT}/${endpoint}/${id}`, {
-            method: "PATCH",
+        const queryString = Object.keys(queryParams).map(key => `${key}=${queryParams[key]}`).join('&');
+        console.log(`Try put request with query params: ${process.env.EXPO_PUBLIC_API_ENDPOINT}/${endpoint}?${queryString}`);
+        return await fetch(`${process.env.EXPO_PUBLIC_API_ENDPOINT}/${endpoint}?${queryString}`, {
+            method: "PUT",
             headers: {
                 "Content-Type": "application/json"
             },
             body: bodyObj,
         });
     } catch (error) {
-        console.error("Error in PATCH request:", error);
+        console.error("Error in PUT request:", error);
         return null;
     }
 }
@@ -118,4 +80,4 @@ async function DeleteWithBody(endpoint: string, bodyObj: string) {
     }
 }
 
-export { GetBookFromGoogleAPI as GetISBNBook, GetBooksFromGoogleAPI as GetISBNBooks, Get, GetWithQueryParams, Post, Patch, Delete, DeleteWithBody };
+export { Get, GetWithQueryParams, Post, Put, Delete, DeleteWithBody };
