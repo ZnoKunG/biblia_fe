@@ -129,14 +129,14 @@ export default function RegisterScreen() {
       paddingHorizontal: spacing.sm,
       paddingVertical: spacing.xs,
       borderRadius: 16,
-      backgroundColor: colors.secondary,
+      backgroundColor: colors.background,
       marginRight: spacing.xs,
       marginBottom: spacing.xs,
       borderWidth: 1,
       borderColor: colors.border,
     },
     selectedGenreChip: {
-      backgroundColor: colors.primary || 'rgba(76, 175, 80, 0.2)',
+      backgroundColor: colors.background || 'rgba(76, 175, 80, 0.2)',
       borderColor: colors.primary,
     },
     genreText: {
@@ -308,7 +308,7 @@ export default function RegisterScreen() {
               style={styles.logo} 
               resizeMode="contain"
             />
-            <Heading level={1}>ReadTracker</Heading>
+            <Heading level={1}>Biblia</Heading>
             <Paragraph secondary>Track your reading journey</Paragraph>
           </View>
 
@@ -410,15 +410,6 @@ export default function RegisterScreen() {
               onPress={handleRegister} 
               style={styles.registerButton} 
             />
-            
-            <Row justify="between" style={styles.loginRow}>
-              <Paragraph>Already have an account? </Paragraph>
-              <Link href="./auth/login" asChild>
-                <TouchableOpacity>
-                  <Paragraph style={{ color: colors.secondary }}>Log In</Paragraph>
-                </TouchableOpacity>
-              </Link>
-            </Row>
           </Card>
         </ScrollView>
       </KeyboardAvoidingView>

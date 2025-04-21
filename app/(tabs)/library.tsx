@@ -165,12 +165,18 @@ export default function LibraryPage(): JSX.Element {
         console.log("Cannot find UserID in local storage");
         return;
       }
+
+      // Generate ISBN as Date.now() if not provided by user
+      const finalIsbn = formData.isbn.trim() ? formData.isbn.trim() : Date.now().toString();
       
       const newBook: BookRecord = {
         ...formData,
+        isbn: finalIsbn, // Use the generated or provided ISBN
         userID: parseInt(currentUserID) || 0,
         dateAdded: new Date().toISOString(),
       };
+
+      console.log(newBook);
 
       const resp = await Post("records", JSON.stringify(newBook));
 
@@ -662,7 +668,7 @@ export default function LibraryPage(): JSX.Element {
 
               <Row>
                 <View style={{ flex: 1, marginRight: spacing.sm }}>
-                  <Paragraph style={{ marginBottom: spacing.sm }}>ISBN</Paragraph>
+                  <Paragraph style={{ marginBottom: spacing.sm }}>ISBN (Optional)</Paragraph>
                   <Input
                     placeholder="ISBN"
                     value={formData.isbn}

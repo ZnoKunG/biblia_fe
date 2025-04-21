@@ -128,7 +128,7 @@ export default function LoginScreen() {
               style={styles.logo} 
               resizeMode="contain"
             />
-            <Heading level={1}>ReadTracker</Heading>
+            <Heading level={1}>Biblia</Heading>
             <Paragraph secondary>Track your reading journey</Paragraph>
           </View>
 
