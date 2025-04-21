@@ -30,7 +30,7 @@ import {
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import BookDetailModal from '../components/bookDetail';
 import { useTheme } from '../styles/themeContext';
-import { Get, GetWithQueryParams, Put, Post } from '@/services/serviceProvider';
+import { Get, GetWithQueryParams, Put, Post, Delete, DeleteWithQueryParams } from '@/services/serviceProvider';
 import { getCurrentUserID, getIsLoggedIn } from '../services/authService';
 import { useRouter } from 'expo-router';
 import { getBookByISBN, searchBooks } from '../services/googleBookService';
@@ -95,7 +95,7 @@ export default function LibraryPage(): JSX.Element {
         return;
       }
 
-      const queryParams = { userID: currentUserID };
+      const queryParams = { userId: currentUserID };
       const resp = await GetWithQueryParams('records', queryParams);
       
       if (!resp || !resp.ok) {
@@ -106,6 +106,7 @@ export default function LibraryPage(): JSX.Element {
 
       const recordResp = await resp.json();
       const records: BookRecord[] = recordResp.data || [];
+      console.log(records);
       setBooks(records);
     } catch (error) {
       console.error("Error fetching user books:", error);
@@ -254,9 +255,30 @@ export default function LibraryPage(): JSX.Element {
     }, 500);
   };
 
-  const filteredBooks = filter === 'all' 
+  const sortBooksByStatus = (books: BookRecord[]): BookRecord[] => {
+    const statusPriority = {
+      'to read': 1,
+      'in progress': 2,
+      'finished': 3
+    };
+  
+    return [...books].sort((a, b) => {
+      // First sort by status priority
+      const statusDiff = statusPriority[a.status] - statusPriority[b.status];
+      if (statusDiff !== 0) {
+        return statusDiff;
+      }
+      
+      // For books with the same status, sort by dateAdded (most recent first)
+      const dateA = new Date(a.dateAdded || 0);
+      const dateB = new Date(b.dateAdded || 0);
+      return dateB.getTime() - dateA.getTime();
+    });
+  };
+
+  const filteredBooks = sortBooksByStatus(filter === 'all' 
     ? books 
-    : books.filter(book => book.status === filter);
+    : books.filter(book => book.status === filter));
 
   const updateBookProgress = async (isbn: string, progress: number): Promise<void> => {
     try {
@@ -288,10 +310,17 @@ export default function LibraryPage(): JSX.Element {
         userId: currentUserID,
         isbn,
       }
-      const resp = await Put(`records`, queryParams, JSON.stringify(updatedBook));
+
+      const updateBookBody = {
+        currentPage: progress,
+        status: newStatus as 'to read' | 'in progress' | 'finished',
+      }
+      const resp = await Put(`records`, queryParams, JSON.stringify(updateBookBody));
       
       if (!resp || !resp.ok) {
-        console.error("Error updating book progress:", resp?.status);
+        console.error(resp?.status);
+        const data = await resp?.json();
+        console.error("Error updating book progress:", JSON.stringify(data));
         Alert.alert("Error", "Failed to update progress. Please try again.");
         return;
       }
@@ -314,6 +343,71 @@ export default function LibraryPage(): JSX.Element {
     } catch (error) {
       console.error("Error updating book progress:", error);
       Alert.alert("Error", "Failed to update progress. Please try again.");
+    }
+  };
+
+  const removeBookRecord = async (isbn: string): Promise<void> => {
+    try {
+      // Show confirmation dialog
+      Alert.alert(
+        "Remove Book",
+        "Are you sure you want to remove this book from your library?",
+        [
+          {
+            text: "Cancel",
+            style: "cancel"
+          },
+          {
+            text: "Remove",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                // Get current user ID
+                const currentUserID = await getCurrentUserID();
+                
+                if (!currentUserID) {
+                  console.log("Cannot find UserID in local storage");
+                  return;
+                }
+                
+                const queryParams = {
+                  userId: currentUserID,
+                  isbn,
+                };
+                
+                // Call delete endpoint
+                const resp = await DeleteWithQueryParams("records", queryParams);
+                
+                if (!resp || !resp.ok) {
+                  console.error("Error removing book record:", resp?.status);
+                  const errResp = await resp?.json();
+                  console.error(errResp);
+                  Alert.alert("Error", "Failed to remove book from library. Please try again.");
+                  return;
+                }
+                
+                // Update local state by filtering out the removed book
+                setBooks(prevBooks => prevBooks.filter(book => book.isbn !== isbn));
+                
+                // Close detail modal if open
+                if (selectedBook && selectedBook.isbn === isbn) {
+                  setShowDetailModal(false);
+                  setSelectedBook(null);
+                }
+                
+                Alert.alert("Success", "Book removed from your library");
+              } catch (error) {
+                console.error("Error removing book:", error);
+                Alert.alert("Error", "There was a problem removing the book. Please try again.");
+              }
+            }
+          }
+        ],
+        { cancelable: true }
+      );
+    } catch (error) {
+      console.error("Error in removeBookRecord:", error);
+      Alert.alert("Error", "An unexpected error occurred. Please try again.");
     }
   };
 
@@ -722,6 +816,7 @@ export default function LibraryPage(): JSX.Element {
           onUpdateProgress={(progress: number) => {
             updateBookProgress(selectedBook.isbn, progress);
           }}
+          onRemoveRecord={() => removeBookRecord(selectedBook.isbn)}
           isInLibrary={true}
         />
       )}

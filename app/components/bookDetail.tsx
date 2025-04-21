@@ -6,7 +6,8 @@ import {
   Image, 
   TouchableOpacity, 
   ScrollView,
-  StyleSheet
+  StyleSheet,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, fontSize, shadows } from '../styles/defaultStyles';
@@ -27,6 +28,7 @@ interface BookDetailModalProps {
   book: Book | BookRecord;
   onAddToLibrary?: () => void;
   onUpdateProgress?: (progress: number) => void;
+  onRemoveRecord?: () => void;
   isInLibrary: boolean;
 }
 
@@ -36,6 +38,7 @@ const BookDetailModal = ({
   book, 
   onAddToLibrary,
   onUpdateProgress,
+  onRemoveRecord,
   isInLibrary
 }: BookDetailModalProps) => {
   // Helper to determine if book is a library record or search result
@@ -261,9 +264,7 @@ const BookDetailModal = ({
               <View style={styles.descriptionSection}>
                 <Heading level={4}>About this book</Heading>
                 <Paragraph>
-                  This is where a book description would appear. In a real application, 
-                  this would contain a summary of the book, publisher information, 
-                  and other relevant details fetched from a books API.
+                {book.description || "No description about this book."}
                 </Paragraph>
               </View>
               
@@ -295,8 +296,7 @@ const BookDetailModal = ({
                     <OutlineButton 
                       title="Remove from Library" 
                       onPress={() => {
-                        // This would be implemented in a real app
-                        alert('Remove from library functionality would go here');
+                        onRemoveRecord && onRemoveRecord();
                         onClose();
                       }}
                       style={{

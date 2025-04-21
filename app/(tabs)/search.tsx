@@ -98,7 +98,7 @@ export default function SearchPage(): JSX.Element {
     setHasSearched(true);
 
     try {
-      let results = await searchBooks("mystery");
+      let results = await searchBooks(searchQuery);
       
       // Filter by search query if provided
       if (searchQuery.trim() !== '') {
@@ -340,10 +340,12 @@ export default function SearchPage(): JSX.Element {
               style={styles.coverImage}
               resizeMode="cover"
             />
-            <View style={styles.ratingBadge}>
-              <Ionicons name="star" size={12} color="#fff" />
-              <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
-            </View>
+            {item.rating > 0 && (
+              <View style={styles.ratingBadge}>
+                <Ionicons name="star" size={12} color="#fff" />
+                <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
+              </View>
+            )}
           </View>
           
           {/* Book Details */}
@@ -438,7 +440,7 @@ export default function SearchPage(): JSX.Element {
           <FlatList
             data={searchResults}
             renderItem={renderBookItem}
-            keyExtractor={(item) => item.isbn}
+            keyExtractor={(item) => item.isbn + item.title}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 20 }}
           />

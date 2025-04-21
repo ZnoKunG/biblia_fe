@@ -7,20 +7,18 @@ const GOOGLE_BOOKS_API_URL = 'https://www.googleapis.com/books/v1/volumes';
 /**
  * Search books using Google Books API
  * @param query - Search query string
- * @param maxResults - Maximum number of results to return (default: 20)
+ * @param maxResults - Maximum number of results to return (default: 5)
  * @returns Promise with array of Book objects
  */
-export const searchBooks = async (query: string, maxResults: number = 20): Promise<Book[]> => {
+export const searchBooks = async (query: string, maxResults: number = 5): Promise<Book[]> => {
   try {
     if (!query.trim()) {
       return [];
     }
 
     // Construct API URL
-    let url = `${GOOGLE_BOOKS_API_URL}?q=${encodeURIComponent(query)}&maxResults=${maxResults}`;
-    
-    // Add API key if you have one
-    // url += `&key=${API_KEY}`;
+    let url = `${GOOGLE_BOOKS_API_URL}?q=${query}&maxResults=${maxResults}`;
+    console.log(url);
 
     const response = await fetch(url);
     
@@ -54,7 +52,7 @@ export const getBookByISBN = async (isbn: string): Promise<Book | null> => {
     }
 
     const query = `isbn:${isbn}`;
-    const url = `${GOOGLE_BOOKS_API_URL}?q=${encodeURIComponent(query)}`;
+    const url = `${GOOGLE_BOOKS_API_URL}?q=${query}`;
     
     const response = await fetch(url);
     

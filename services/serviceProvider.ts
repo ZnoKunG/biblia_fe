@@ -64,6 +64,17 @@ async function Delete(endpoint: string) {
     }
 }
 
+async function DeleteWithQueryParams(endpoint: string, queryParams: Record<string, string>) {
+    try {
+        const queryString = Object.keys(queryParams).map(key => `${key}=${queryParams[key]}`).join('&');
+        console.log(`Try delete request with query params: ${process.env.EXPO_PUBLIC_API_ENDPOINT}/${endpoint}?${queryString}`);
+        return await fetch(`${process.env.EXPO_PUBLIC_API_ENDPOINT}/${endpoint}?${queryString}`, { method: "DELETE" });
+    } catch (error) {
+        console.error("Error in DELETE request:", error);
+        return null;
+    }
+}
+
 async function DeleteWithBody(endpoint: string, bodyObj: string) {
     try {
         console.log(`Try delete request with body: ${process.env.EXPO_PUBLIC_API_ENDPOINT}/${endpoint}`);
@@ -80,4 +91,4 @@ async function DeleteWithBody(endpoint: string, bodyObj: string) {
     }
 }
 
-export { Get, GetWithQueryParams, Post, Put, Delete, DeleteWithBody };
+export { Get, GetWithQueryParams, Post, Put, Delete, DeleteWithQueryParams, DeleteWithBody };
