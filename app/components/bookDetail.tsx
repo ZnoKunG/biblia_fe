@@ -21,6 +21,7 @@ import {
   StatusBadge 
 } from '../styles/defaultComponents';
 import { useTheme } from '../styles/themeContext';
+import { Book, BookRecord } from '@/models/book.model';
 
 interface BookDetailModalProps {
   visible: boolean;

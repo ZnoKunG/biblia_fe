@@ -1,3 +1,5 @@
+import { Book } from "@/models/book.model";
+
 // Google Books API URL
 const GOOGLE_BOOKS_API_URL = 'https://www.googleapis.com/books/v1/volumes';
 

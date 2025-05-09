@@ -1,5 +1,5 @@
 // app/(tabs)/library.tsx with updated book model
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, JSX } from 'react';
 import { 
   View, 
   FlatList, 
@@ -34,6 +34,7 @@ import { Get, GetWithQueryParams, Put, Post, Delete, DeleteWithQueryParams } fro
 import { getCurrentUserID, getIsLoggedIn } from '../services/authService';
 import { useRouter } from 'expo-router';
 import { getBookByISBN, searchBooks } from '../services/googleBookService';
+import { Book, BookRecord, RecordFormData } from '@/models/book.model';
 
 export default function LibraryPage(): JSX.Element {
   const [loading, setLoading] = useState<boolean>(true);

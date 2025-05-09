@@ -1,5 +1,5 @@
 // interfaces/book.interface.ts
-interface Book {
+export interface Book {
   isbn: string;
   title: string;
   author: string;
@@ -11,14 +11,14 @@ interface Book {
   description?: string;
 }
 
-interface BookRecord extends Book {
+export interface BookRecord extends Book {
   userID: number;
   status: 'to read' | 'in progress' | 'finished';
   currentPage: number;
   dateAdded: string;
 }
 
-interface RecordFormData extends Book {
+export interface RecordFormData extends Book {
   userID: number;
   status: 'to read' | 'in progress' | 'finished';
   currentPage: number;

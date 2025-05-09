@@ -1,5 +1,5 @@
 // app/components/chatbotBubble.tsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, JSX } from 'react';
 import { 
   View, 
   Text, 
@@ -28,6 +28,7 @@ import { useTheme } from '../styles/themeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Get, Post } from '@/services/serviceProvider';
 import { getCurrentUserID } from '../services/authService';
+import { BookRecord } from '@/models/book.model';
 
 // API configuration
 const API_ENDPOINTS = {

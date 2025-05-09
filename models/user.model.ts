@@ -1,17 +1,17 @@
 // Interface for User
-interface CreateUser {
+export interface CreateUser {
     username: string;
     password: string;
     favourite_genres: string[];
 }
 
-interface User {
+export interface User {
   id: number;
   username: string;
   favourite_genres: string[];
 }
 
-interface CredentialUser {
+export interface CredentialUser {
   username: string;
   password: string;
 }

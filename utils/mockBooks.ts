@@ -1,3 +1,5 @@
+import { Book, BookRecord } from "@/models/book.model";
+
 export const mockBooks: Book[] = [
   {
     isbn: '9781451673319',

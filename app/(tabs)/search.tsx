@@ -1,5 +1,5 @@
 // app/(tabs)/search.tsx with chat bubble
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, JSX } from 'react';
 import { 
   View, 
   Text,
@@ -32,6 +32,7 @@ import { useRouter } from 'expo-router';
 import { Get, Post } from '@/services/serviceProvider';
 import { getCurrentUserID, getIsLoggedIn } from '../services/authService';
 import { searchBooks } from '../services/googleBookService';
+import { Book, BookRecord } from '@/models/book.model';
 
 export default function SearchPage(): JSX.Element {
   const { baseStyles, colors } = useTheme();

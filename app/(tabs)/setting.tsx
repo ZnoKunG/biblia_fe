@@ -1,5 +1,5 @@
 // app/(tabs)/settings.tsx
-import React, { useState } from 'react';
+import React, { JSX, useState } from 'react';
 import { 
   View, 
   Switch, 
